@@ -1,3 +1,5 @@
+import { uuid } from "./uuid";
+
 export type DayKind = "torso" | "pierna" | "opcional" | "descanso";
 
 /** Un ejercicio de tu biblioteca. Lo creas tú, no viene predefinido. */
@@ -61,5 +63,5 @@ export const DEFAULT_ROUTINE: RoutineDay[] = [
 ];
 
 export function newExerciseId(): string {
-  return `ex_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  return uuid();
 }

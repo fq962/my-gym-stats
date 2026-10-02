@@ -9,6 +9,7 @@ import {
   type RoutineDay,
   type UserExercise,
 } from "./routine";
+import { isUuid, uuid } from "./uuid";
 
 export type SetEntry = {
   weight: number | null;
@@ -62,12 +63,45 @@ function migrate(raw: Partial<Store> | null): Store {
   };
 }
 
+/**
+ * Los ejercicios guardados antes de usar Supabase tienen ids tipo "ex_xxx";
+ * la base de datos exige uuid, así que se reemplazan de forma consistente.
+ * Devuelve el mismo objeto si no hay nada que cambiar.
+ */
+function remapLegacyIds(s: Store): Store {
+  const map = new Map<string, string>();
+  const fix = (id: string) => {
+    if (isUuid(id)) return id;
+    let next = map.get(id);
+    if (!next) map.set(id, (next = uuid()));
+    return next;
+  };
+
+  const exercises: Store["exercises"] = {};
+  for (const [id, ex] of Object.entries(s.exercises)) {
+    const nid = fix(id);
+    exercises[nid] = { ...ex, id: nid };
+  }
+  const routine = s.routine.map((d) => ({ ...d, exerciseIds: d.exerciseIds.map(fix) }));
+  const logs: Store["logs"] = {};
+  for (const [date, log] of Object.entries(s.logs)) {
+    logs[date] = {
+      ...log,
+      exercises: log.exercises.map((e) => ({ ...e, exerciseId: fix(e.exerciseId) })),
+    };
+  }
+  return map.size === 0 ? s : { exercises, routine, logs };
+}
+
 function read(): Store {
   if (typeof window === "undefined") return EMPTY;
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return EMPTY;
-    return migrate(JSON.parse(raw));
+    const migrated = migrate(JSON.parse(raw));
+    const store = remapLegacyIds(migrated);
+    if (store !== migrated) window.localStorage.setItem(KEY, JSON.stringify(store));
+    return store;
   } catch {
     return EMPTY;
   }
@@ -99,7 +133,22 @@ function subscribe(listener: () => void) {
   };
 }
 
-function getSnapshot(): Store {
+/** Para el motor de sincronización: avisa en cada cambio del store. */
+export function onStoreChange(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** Reemplaza el estado (p. ej. con lo bajado de Supabase) y lo persiste en local. */
+export function hydrate(store: Store) {
+  emit(store);
+}
+
+export { EMPTY as EMPTY_STORE };
+
+export function getSnapshot(): Store {
   if (cache === null) cache = read();
   return cache;
 }

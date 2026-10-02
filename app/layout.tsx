@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
+import { StoreSync } from "@/components/store-sync";
+import { UserMenu } from "@/components/user-menu";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +40,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             {children}
           </main>
         </div>
+        <StoreSync />
+        <UserMenu />
         <BottomNav />
       </body>
     </html>
